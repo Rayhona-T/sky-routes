@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sky Routes: The BFS Expedition</title>
+<meta name="description" content="A pastel aviation puzzle game that visualises Breadth-First Search, step by step, on floating-island airway maps." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A0%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#stage">Skip to map</a>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="40" height="40" role="presentation">
+        <circle cx="24" cy="24" r="22" fill="#ffffff" opacity=".72"/>
+        <path d="M8 30c6-4 12-6 18-6s12 2 16 6" stroke="#8ED0F5" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M14 22l16-7 4 4-9 6 6 7-4 2-8-8-6 4z" fill="#FF9A8B"/>
+        <circle cx="30" cy="17" r="2.4" fill="#2B3A67"/>
+      </svg>
+    </span>
+    <span class="brand-text">
+      <strong>Sky Routes</strong>
+      <em>The BFS Expedition</em>
+    </span>
+  </div>
+
+  <nav class="level-nav" aria-label="Levels">
+    <button class="nav-btn" data-level="0" type="button"><span class="nav-num">1</span><span class="nav-name">Sunny Crossing</span></button>
+    <button class="nav-btn" data-level="1" type="button"><span class="nav-num">2</span><span class="nav-name">Storm Front</span></button>
+    <button class="nav-btn" data-level="2" type="button"><span class="nav-num">3</span><span class="nav-name">Blocked Airways</span></button>
+    <button class="nav-btn nav-btn--editor" data-level="3" type="button"><span class="nav-num">✎</span><span class="nav-name">Free Play</span></button>
+  </nav>
+
+  <div class="top-actions">
+    <button class="chip-btn" id="btn-tutorial" type="button" aria-haspopup="dialog">How BFS Works <kbd>T</kbd></button>
+    <button class="icon-btn" id="btn-sound" type="button" aria-pressed="true" title="Sound on/off" aria-label="Toggle sound">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="snd-on" d="M16.5 8.5a5 5 0 010 7M18.8 6.2a8 8 0 010 11.6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path class="snd-off" d="M17 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-help" type="button" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 17.5v.01M12 14c0-2 2.2-2.2 2.2-4.2A2.2 2.2 0 0010 10.4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ STAGE (map + tools) ============ -->
+  <section class="stage" id="stage" aria-label="Airway map">
+    <div class="mission-strip">
+      <div class="mission-title">
+        <span class="mission-badge" id="mission-badge">Level 1</span>
+        <h1 id="mission-name">Sunny Crossing</h1>
+      </div>
+      <p id="mission-text">Pick a departure airport, then a destination, and let BFS chart the shortest way.</p>
+      <div class="mission-tags" id="mission-tags"></div>
+    </div>
+
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="map" tabindex="0" role="application"
+              aria-label="Interactive airway map. Use arrow keys to move the cursor, Enter to apply the current tool, Space to play or pause the search."></canvas>
+      <div class="canvas-toast" id="canvas-toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="toolbar" role="toolbar" aria-label="Map tools">
+      <div class="tool-group" id="tool-group">
+        <span class="group-label">Tools</span>
+        <button class="tool" data-tool="start" type="button" aria-pressed="true">
+          <span class="tool-ico ico-start" aria-hidden="true"></span>Departure
+        </button>
+        <button class="tool" data-tool="goal" type="button" aria-pressed="false">
+          <span class="tool-ico ico-goal" aria-hidden="true"></span>Destination
+        </button>
+        <button class="tool" data-tool="storm" type="button" aria-pressed="false">
+          <span class="tool-ico ico-storm" aria-hidden="true"></span>Storm
+        </button>
+        <button class="tool" data-tool="mountain" type="button" aria-pressed="false">
+          <span class="tool-ico ico-mountain" aria-hidden="true"></span>Mountain
+        </button>
+        <button class="tool" data-tool="airway" type="button" aria-pressed="false">
+          <span class="tool-ico ico-airway" aria-hidden="true"></span>Close airway
+        </button>
+        <button class="tool" data-tool="erase" type="button" aria-pressed="false">
+          <span class="tool-ico ico-erase" aria-hidden="true"></span>Erase
+        </button>
+      </div>
+      <div class="tool-group tool-group--right">
+        <button class="ghost-btn" id="btn-restore" type="button" title="Restore this map to its original layout">Restore map</button>
+        <button class="ghost-btn" id="btn-clear" type="button" title="Remove every obstacle and closed airway">Clear obstacles</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL (controls + info) ============ -->
+  <aside class="panel" aria-label="Search controls and readouts">
+
+    <section class="card transport">
+      <div class="transport-row">
+        <button class="big-btn" id="btn-play" type="button" aria-label="Play search">
+          <svg class="ico-play" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5.5l11 6.5-11 6.5z" fill="currentColor"/></svg>
+          <svg class="ico-pause" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5h3v14H8zM13 5h3v14h-3z" fill="currentColor"/></svg>
+          <span id="play-label">Autoplay</span>
+        </button>
+        <button class="mid-btn" id="btn-step" type="button" title="Advance one BFS step (.)">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 5.5l9 6.5-9 6.5z" fill="currentColor"/><path d="M17 5h2.4v14H17z" fill="currentColor"/></svg>
+          Step
+        </button>
+        <button class="mid-btn" id="btn-reset" type="button" title="Reset the search (R)">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5V2L7.5 6 12 10V7a5 5 0 11-5 5H5a7 7 0 107-7z" fill="currentColor"/></svg>
+          Reset
+        </button>
+      </div>
+
+      <div class="speed-row">
+        <label for="speed">Speed</label>
+        <input id="speed" type="range" min="0" max="4" step="1" value="2" aria-describedby="speed-out" />
+        <output id="speed-out" for="speed">1×</output>
+        <div class="speed-ticks" aria-hidden="true"><span>Slow</span><span>Fast</span></div>
+      </div>
+
+      <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+      <div class="progress-meta">
+        <span id="step-counter">Step 0 / 0</span>
+        <span id="mode-chip" class="mode-chip mode-idle">Ready</span>
+      </div>
+    </section>
+
+    <section class="card stats">
+      <h2 class="card-title">Flight readout</h2>
+      <div class="stat-grid">
+        <div class="stat">
+          <span class="stat-label">Current node</span>
+          <strong class="stat-value" id="stat-current">—</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Level (depth)</span>
+          <strong class="stat-value" id="stat-depth">0</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Explored</span>
+          <strong class="stat-value" id="stat-visited">0</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Path length</span>
+          <strong class="stat-value" id="stat-path">—</strong>
+        </div>
+      </div>
+      <div class="queue-block">
+        <div class="queue-head">
+          <span class="stat-label">Live queue <span class="fifo-tag">FIFO</span></span>
+          <span class="queue-len" id="queue-len">0</span>
+        </div>
+        <div class="queue-view" id="queue-view" aria-label="Queue contents, front on the left">
+          <span class="queue-empty">empty</span>
+        </div>
+        <p class="queue-hint">Front of the queue is on the left — nodes leave in the exact order they arrive.</p>
+      </div>
+    </section>
+
+    <section class="card narration">
+      <div class="mascot" id="mascot" data-mood="idle" aria-hidden="true">
+        <svg viewBox="0 0 120 96" width="96" height="76" role="presentation">
+          <ellipse class="m-shadow" cx="60" cy="88" rx="34" ry="6" fill="#2B3A67" opacity=".12"/>
+          <g class="m-body">
+            <path d="M18 56c14-12 40-22 66-24 12-1 22 3 24 10 2 8-8 15-24 17-26 3-52 5-66 3-8-1-9-3 0-6z" fill="#FFD9E8" stroke="#2B3A67" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M46 40l10-22 10 4-6 20z" fill="#FF9A8B" stroke="#2B3A67" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M40 60l-4 18 12-4 6-14z" fill="#FF9A8B" stroke="#2B3A67" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M96 44l14-6 2 8-14 6z" fill="#FF9A8B" stroke="#2B3A67" stroke-width="3" stroke-linejoin="round"/>
+            <circle cx="30" cy="50" r="11" fill="#EAF6FF" stroke="#2B3A67" stroke-width="3"/>
+            <g class="m-face">
+              <circle class="eye" cx="27" cy="48" r="2.6" fill="#2B3A67"/>
+              <circle class="eye" cx="35" cy="48" r="2.6" fill="#2B3A67"/>
+              <path class="mouth" d="M27 55q4.5 4 9 0" stroke="#2B3A67" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            </g>
+          </g>
+          <g class="m-spark"><path d="M96 22l2.6 6 6 2.6-6 2.6-2.6 6-2.6-6-6-2.6 6-2.6z" fill="#FFD166"/></g>
+        </svg>
+      </div>
+      <div class="narration-body">
+        <h2 class="card-title">What BFS just did</h2>
+        <p id="narration-text" aria-live="polite" aria-atomic="true">Press <kbd>Autoplay</kbd> to run the search, or <kbd>Step</kbd> to walk through it one move at a time.</p>
+        <button class="link-btn" id="btn-explain" type="button">Why does this find the shortest route? →</button>
+      </div>
+    </section>
+
+    <section class="card legend">
+      <h2 class="card-title">Map legend</h2>
+      <ul class="legend-list">
+        <li><i class="sw sw-unexplored"></i>Unexplored airspace</li>
+        <li><i class="sw sw-frontier"></i>Frontier — waiting in the queue</li>
+        <li><i class="sw sw-visited"></i>Visited — dequeued &amp; expanded</li>
+        <li><i class="sw sw-current"></i>Current node</li>
+        <li><i class="sw sw-obstacle"></i>Obstacle — storm or mountain</li>
+        <li><i class="sw sw-airway"></i>Closed airway</li>
+        <li><i class="sw sw-path"></i>Shortest path</li>
+      </ul>
+    </section>
+
+    <details class="card shortcuts">
+      <summary>Keyboard shortcuts</summary>
+      <ul class="key-list">
+        <li><kbd>←↑↓→</kbd> move map cursor</li>
+        <li><kbd>Enter</kbd> apply current tool</li>
+        <li><kbd>Space</kbd> play / pause</li>
+        <li><kbd>.</kbd> single step</li>
+        <li><kbd>R</kbd> reset search</li>
+        <li><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed presets</li>
+        <li><kbd>T</kbd> “How BFS Works”</li>
+        <li><kbd>Esc</kbd> close dialogs</li>
+      </ul>
+    </details>
+  </aside>
+</main>
+
+<!-- ============ TUTORIAL MODAL ============ -->
+<div class="modal" id="modal-tutorial" hidden role="dialog" aria-modal="true" aria-labelledby="tut-title">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card modal-card--wide">
+    <header class="modal-head">
+      <div>
+        <span class="eyebrow">Pilot school</span>
+        <h2 id="tut-title">How BFS Works</h2>
+      </div>
+      <button class="icon-btn" data-close type="button" aria-label="Close tutorial">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <div class="modal-body tutorial-body">
+      <p class="lede">Breadth-First Search explores an unweighted map like a ripple in a pond: it finishes everything at distance <em>1</em> before touching anything at distance <em>2</em>. That is exactly why it finds the <strong>shortest</strong> route first.</p>
+
+      <div class="tut-grid">
+        <article class="tut-step">
+          <span class="tut-num">1</span>
+          <h3>Nodes and airways</h3>
+          <p>Every airport on the map is a <strong>node</strong>. Every airway that joins two neighbouring cells is an <strong>edge</strong>. Storms, mountains and closed airways simply remove edges — the map is a plain, unweighted graph.</p>
+        </article>
+        <article class="tut-step">
+          <span class="tut-num">2</span>
+          <h3>A FIFO queue</h3>
+          <p>BFS keeps a <strong>queue</strong>: first in, first out. The origin goes in first, so it comes out first. Neighbours are appended to the <em>back</em>, which forces the search to drain every node at the current distance before moving deeper.</p>
+          <div class="fifo-demo" aria-hidden="true">
+            <span class="fq in">+ C5</span><span class="fq">D5</span><span class="fq">B5</span><span class="fq out">C4 −</span>
+          </div>
+        </article>
+        <article class="tut-step">
+          <span class="tut-num">3</span>
+          <h3>Level by level</h3>
+          <p>Depth <strong>0</strong> is the departure airport, <strong>1</strong> is its four neighbours, <strong>2</strong> their neighbours, and so on. A node’s level is the smallest number of hops that can possibly reach it — BFS visits nodes in non-decreasing level order.</p>
+          <div class="level-demo" aria-hidden="true">
+            <span class="lv lv-0">0</span><span class="lv lv-1">1</span><span class="lv lv-1">1</span><span class="lv lv-2">2</span><span class="lv lv-2">2</span><span class="lv lv-3">3</span>
+          </div>
+        </article>
+        <article class="tut-step">
+          <span class="tut-num">4</span>
+          <h3>The visited set</h3>
+          <p>The moment a node is <strong>enqueued</strong> it is marked visited. Re-checking it later would waste time and could loop forever. Marking early also means each node is queued <em>once</em>, at its smallest possible level.</p>
+        </article>
+        <article class="tut-step">
+          <span class="tut-num">5</span>
+          <h3>Parent pointers → path</h3>
+          <p>When BFS discovers a node it remembers <strong>who discovered it</strong>. When the destination pops out of the queue, we walk those parent links backwards — destination to origin — and reverse the result. That chain <em>is</em> the shortest path.</p>
+          <div class="parent-demo" aria-hidden="true"><span>A1</span><i>←</i><span>C2</span><i>←</i><span>D4</span><i>←</i><span class="hl">F4</span></div>
+        </article>
+        <article class="tut-step">
+          <span class="tut-num">6</span>
+          <h3>Why shortest, guaranteed?</h3>
+          <p>Every edge has the same cost, so the number of hops <em>is</em> the distance. Suppose BFS first reaches the destination via <em>k</em> hops. Before that moment it had already dequeued <strong>every</strong> node at levels <em>0…k−1</em> — so any other route must also have ≥ <em>k</em> hops. If a shorter route existed, BFS would have run out of closer nodes first. Nothing shorter can exist, so the first hit is optimal.</p>
+          <p class="tut-note">Depth-First Search (DFS) races down one branch and can return a long, winding route. BFS widens instead, which is why it wins here. On <em>weighted</em> graphs (where edges cost different amounts) you would reach for Dijkstra’s or A* instead.</p>
+        </article>
+      </div>
+
+      <section class="algo-box">
+        <h3>The algorithm, in pseudocode</h3>
+<pre><code>queue ← [start]                 // FIFO
+visited ← { start }
+parent[start] ← null
+level[start] ← 0
+
+while queue is not empty:
+    node ← queue.pop_front()    // dequeue
+    if node is destination: break
+    for each neighbour of node:
+        if neighbour not visited and airway open:
+            parent[neighbour] ← node
+            level[neighbour] ← level[node] + 1
+            visited.add(neighbour)
+            queue.push_back(neighbour)   // enqueue
+
+path ← walk parent[] from destination back to start, then reverse</code></pre>
+      </section>
+
+      <div class="tut-foot">
+        <button class="ghost-btn" id="btn-tut-practice" type="button">Open Level 1 and try it</button>
+        <button class="solid-btn" data-close type="button">Got it — let's fly</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WIN MODAL ============ -->
+<div class="modal" id="modal-win" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card modal-card--win">
+    <div class="win-banner" aria-hidden="true">
+      <svg viewBox="0 0 320 132" class="win-scene" role="presentation">
+        <circle cx="272" cy="30" r="24" fill="#FFE9A8"/>
+        <ellipse cx="58" cy="34" rx="30" ry="12" fill="#FFFFFF" opacity=".92"/>
+        <ellipse cx="86" cy="38" rx="21" ry="9" fill="#FFFFFF" opacity=".82"/>
+        <path d="M0 92c40-14 78 8 118-2s70-24 112-14 60 20 90 12v44H0z" fill="#8ED0F5" opacity=".55"/>
+        <path d="M0 106c44-10 82 10 124 0s72-18 114-10 56 16 82 10v26H0z" fill="#5FB6E8" opacity=".55"/>
+        <path class="win-trail" d="M2 52C36 58 72 62 104 54" stroke="#FFFFFF" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="3 18"/>
+        <g transform="translate(162,54)">
+        <g class="win-plane">
+          <g transform="scale(2.15)" fill="none" stroke="#2B3A67" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M-7 1L-1 17 13 13 6-2Z" fill="#FFCBBF"/>
+            <path d="M-14 -1L-17 -15-6 -7Z" fill="#FF8E7E"/>
+            <path d="M-12 2L-21 10-9 9Z" fill="#FF8E7E"/>
+            <path d="M-19 0Q-17 -9 -1 -10Q14 -11 21 -3Q25 0 21 3Q14 10 -1 10Q-17 9 -19 0Z" fill="#FFF1EC"/>
+            <path d="M17 -7Q28 -3 25 0Q28 3 17 7Q21 0 17 -7Z" fill="#FF8E7E"/>
+            <path d="M-7 -2L-1 -19 13 -15 7 2Z" fill="#FF9A8B"/>
+            <circle cx="7" cy="-2" r="5.6" fill="#EAF6FF"/>
+            <circle cx="7.5" cy="-2" r="2" fill="#2B3A67" stroke="none"/>
+          </g>
+        </g>
+        </g>
+      </svg>
+    </div>
+    <div class="modal-body win-body">
+      <span class="eyebrow" id="win-eyebrow">Level complete</span>
+      <h2 id="win-title">Smooth flying!</h2>
+      <p id="win-copy">BFS reached the destination with the fewest possible hops.</p>
+
+      <div class="win-stats">
+        <div class="win-stat"><strong id="win-path">0</strong><span>hops in route</span></div>
+        <div class="win-stat"><strong id="win-visited">0</strong><span>nodes explored</span></div>
+        <div class="win-stat"><strong id="win-steps">0</strong><span>BFS steps</span></div>
+        <div class="win-stat"><strong id="win-time">0s</strong><span>search time</span></div>
+      </div>
+
+      <div class="win-actions">
+        <button class="ghost-btn" id="btn-win-replay" type="button">Replay search</button>
+        <button class="ghost-btn" id="btn-win-edit" type="button">Open map editor</button>
+        <button class="solid-btn" id="btn-win-next" type="button">Next level →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SHORTCUTS MODAL ============ -->
+<div class="modal" id="modal-keys" hidden role="dialog" aria-modal="true" aria-labelledby="keys-title">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card">
+    <header class="modal-head">
+      <div><span class="eyebrow">Controls</span><h2 id="keys-title">Keyboard shortcuts</h2></div>
+      <button class="icon-btn" data-close type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <ul class="key-list key-list--full">
+        <li><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd><span>Move the map cursor</span></li>
+        <li><kbd>Enter</kbd><span>Apply the selected tool to the cursor cell</span></li>
+        <li><kbd>Space</kbd><span>Play / pause the search</span></li>
+        <li><kbd>.</kbd> or <kbd>S</kbd><span>Advance one step</span></li>
+        <li><kbd>R</kbd><span>Reset the search to step zero</span></li>
+        <li><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><span>Speed presets: slow, normal, fast</span></li>
+        <li><kbd>T</kbd><span>Open “How BFS Works”</span></li>
+        <li><kbd>Esc</kbd><span>Close the open dialog</span></li>
+      </ul>
+      <p class="tut-note">Everything in the game is mouse-, touch- and keyboard-operable. The canvas announces each algorithm step to screen readers.</p>
+    </div>
+  </div>
+</div>
+
+<noscript>
+  <p style="padding:24px;font-family:system-ui">Sky Routes needs JavaScript enabled to run its Breadth-First Search.</p>
+</noscript>
+
+<script src="js/bfs.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
